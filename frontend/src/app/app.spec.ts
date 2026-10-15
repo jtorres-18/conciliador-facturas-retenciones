@@ -1,43 +1,51 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 
 import { App } from './app';
-import { Resultado } from './models/conciliacion.model';
-import { API_URL } from './services/conciliacion.service';
+import { FileUpload } from './components/file-upload/file-upload';
+import { ReconciliationResponse } from './models/reconciliation.model';
+import { API_URL } from './services/reconciliation.service';
 
-const RESULTADO: Resultado = {
-  resumen: {
-    total_facturas: 2,
-    ids_unicos: 2,
-    correctas: 1,
-    con_inconsistencia: 1,
-    correctas_con_advertencia: 0,
-    por_causa: [{ codigo: 'SIN_CONTABILIDAD', descripcion: 'Sin registro contable', cantidad: 1 }],
-    por_advertencia: [],
-    registros_contables: 1,
-    contabilidad_sin_factura: [],
+const RECONCILIATION_URL = `${API_URL}/reconciliations`;
+
+const RESPONSE: ReconciliationResponse = {
+  summary: {
+    totalInvoices: 2,
+    uniqueInvoiceIds: 2,
+    correct: 1,
+    inconsistent: 1,
+    correctWithWarnings: 0,
+    errorsByCode: [{ code: 'MISSING_ACCOUNTING_RECORD', description: 'Sin registro contable', count: 1 }],
+    warningsByCode: [],
+    accountingRecords: 1,
+    accountingWithoutInvoice: [],
   },
-  detalle: [
+  details: [
     {
-      fila: 2, id_factura: 'F1', nit_proveedor: '900', fecha_factura: '2026-01-01', concepto: 'Soporte',
-      base_gravable: 100, valor_iva: 0, iva_esperado: 0, valor_retencion: 0, total_factura: 100,
-      total_esperado: 100, valor_contabilizado: 100, estado_contable: 'Contabilizada',
-      estado: 'Correcta', causas: [], advertencias: [],
+      rowNumber: 2, invoiceId: 'F1', supplierTaxId: '900', issueDate: '2026-01-01', concept: 'Soporte',
+      taxableBase: 100, vatAmount: 0, expectedVat: 0, withholdingAmount: 0, totalAmount: 100,
+      expectedTotal: 100, postedAmount: 100, postingStatus: 'Contabilizada',
+      status: 'Correcta', errors: [], warnings: [],
     },
     {
-      fila: 3, id_factura: 'F2', nit_proveedor: '901', fecha_factura: '2026-01-02', concepto: 'Soporte',
-      base_gravable: 200, valor_iva: 0, iva_esperado: 0, valor_retencion: 0, total_factura: 200,
-      total_esperado: 200, valor_contabilizado: null, estado_contable: null,
-      estado: 'Con inconsistencia',
-      causas: [{ codigo: 'SIN_CONTABILIDAD', mensaje: 'No existe ningún registro contable para esta factura' }],
-      advertencias: [],
+      rowNumber: 3, invoiceId: 'F2', supplierTaxId: '901', issueDate: '2026-01-02', concept: 'Soporte',
+      taxableBase: 200, vatAmount: 0, expectedVat: 0, withholdingAmount: 0, totalAmount: 200,
+      expectedTotal: 200, postedAmount: null, postingStatus: null,
+      status: 'Con inconsistencia',
+      errors: [{
+        code: 'MISSING_ACCOUNTING_RECORD',
+        description: 'Sin registro contable',
+        message: 'No existe ningún registro contable para esta factura',
+      }],
+      warnings: [],
     },
   ],
 };
 
-function archivo(nombre: string): File {
-  return new File(['id_factura\n'], nombre, { type: 'text/csv' });
+function csvFile(name: string): File {
+  return new File(['id_factura\n'], name, { type: 'text/csv' });
 }
 
 describe('App', () => {
@@ -51,61 +59,61 @@ describe('App', () => {
     http = TestBed.inject(HttpTestingController);
   });
 
-  function procesar() {
+  afterEach(() => http.verify());
+
+  function submitFiles(): ComponentFixture<App> {
     const fixture = TestBed.createComponent(App);
     fixture.detectChanges();
-    (fixture.componentInstance as any).procesar({
-      facturas: archivo('facturas.csv'),
-      contabilidad: archivo('contabilidad.csv'),
-    });
+    const fileUpload = fixture.debugElement.query(By.directive(FileUpload)).componentInstance as FileUpload;
+    fileUpload.submitted.emit({ invoices: csvFile('facturas.csv'), accounting: csvFile('contabilidad.csv') });
     fixture.detectChanges();
     return fixture;
   }
 
-  it('envía los dos archivos al backend y muestra el resumen y el detalle', () => {
-    const fixture = procesar();
-    const peticion = http.expectOne(`${API_URL}/conciliacion`);
-    expect(peticion.request.method).toBe('POST');
-    expect(peticion.request.body.get('facturas').name).toBe('facturas.csv');
-    expect(peticion.request.body.get('contabilidad').name).toBe('contabilidad.csv');
+  it('sends both files to the backend and shows the summary and the details', () => {
+    const fixture = submitFiles();
+    const request = http.expectOne(RECONCILIATION_URL);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body.get('invoices').name).toBe('facturas.csv');
+    expect(request.request.body.get('accounting').name).toBe('contabilidad.csv');
     expect(fixture.nativeElement.textContent).toContain('Procesando');
 
-    peticion.flush(RESULTADO);
+    request.flush(RESPONSE);
     fixture.detectChanges();
-    const texto = fixture.nativeElement.textContent as string;
-    expect(texto).not.toContain('Procesando');
-    expect(texto).toContain('Facturas procesadas');
+    const text = fixture.nativeElement.textContent as string;
+    expect(text).not.toContain('Procesando');
+    expect(text).toContain('Facturas procesadas');
     expect(fixture.nativeElement.querySelectorAll('tbody tr').length).toBe(2);
   });
 
-  it('filtra la tabla por estado', () => {
-    const fixture = procesar();
-    http.expectOne(`${API_URL}/conciliacion`).flush(RESULTADO);
+  it('filters the table by status', () => {
+    const fixture = submitFiles();
+    http.expectOne(RECONCILIATION_URL).flush(RESPONSE);
     fixture.detectChanges();
 
-    const botones = Array.from<HTMLButtonElement>(fixture.nativeElement.querySelectorAll('.filtro'));
-    botones.find((b) => b.textContent?.includes('Con inconsistencia'))!.click();
+    const buttons = Array.from<HTMLButtonElement>(fixture.nativeElement.querySelectorAll('.filter'));
+    buttons.find((button) => button.textContent?.includes('Con inconsistencia'))!.click();
     fixture.detectChanges();
 
-    const filas = fixture.nativeElement.querySelectorAll('tbody tr');
-    expect(filas.length).toBe(1);
-    expect(filas[0].textContent).toContain('F2');
+    const rows = fixture.nativeElement.querySelectorAll('tbody tr');
+    expect(rows.length).toBe(1);
+    expect(rows[0].textContent).toContain('F2');
   });
 
-  it('muestra el mensaje del backend cuando hay un error de archivo', () => {
-    const fixture = procesar();
-    http.expectOne(`${API_URL}/conciliacion`).flush(
+  it('shows the backend message when a file is invalid', () => {
+    const fixture = submitFiles();
+    http.expectOne(RECONCILIATION_URL).flush(
       { detail: "Al archivo 'facturas.csv' le faltan las columnas: nit_proveedor." },
       { status: 400, statusText: 'Bad Request' },
     );
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('[role=alert]').textContent).toContain('le faltan las columnas');
-    expect(fixture.nativeElement.querySelector('app-resumen')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-summary')).toBeNull();
   });
 
-  it('avisa cuando no se puede conectar con el backend', () => {
-    const fixture = procesar();
-    http.expectOne(`${API_URL}/conciliacion`).error(new ProgressEvent('error'));
+  it('warns when the backend is not reachable', () => {
+    const fixture = submitFiles();
+    http.expectOne(RECONCILIATION_URL).error(new ProgressEvent('error'));
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('[role=alert]').textContent).toContain('No se pudo conectar');
   });

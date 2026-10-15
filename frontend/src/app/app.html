@@ -1,29 +1,40 @@
-<header class="cabecera">
-  <div class="contenido">
+<header class="page-header">
+  <div class="container header-content">
+    <span class="tag">Gerencia de Evolución Contable y Tributaria</span>
     <h1>Conciliador de facturas y retenciones</h1>
     <p>Cruza las facturas de proveedores con los registros contables y señala qué revisar y por qué.</p>
   </div>
 </header>
 
-<main class="contenido">
-  <app-carga-archivos [cargando]="cargando()" (procesar)="procesar($event)" />
+<main class="container">
+  <app-file-upload [loading]="loading()" (submitted)="reconcile($event)" />
 
-  @if (cargando()) {
-    <div class="estado" role="status">
-      <span class="spinner grande" aria-hidden="true"></span>
-      Procesando la conciliación…
+  @if (loading()) {
+    <div class="card loading" role="status">
+      <span class="spinner large" aria-hidden="true"></span>
+      <div>
+        <strong>Procesando la conciliación…</strong>
+        <p>Validando IVA, retenciones, duplicados y registros contables.</p>
+      </div>
     </div>
   }
 
-  @if (error(); as mensaje) {
-    <div class="tarjeta error-caja" role="alert">
-      <strong>No se pudo completar la conciliación</strong>
-      <p>{{ mensaje }}</p>
+  @if (errorMessage(); as message) {
+    <div class="card error-box" role="alert">
+      <span class="error-icon" aria-hidden="true">!</span>
+      <div>
+        <strong>No se pudo completar la conciliación</strong>
+        <p>{{ message }}</p>
+      </div>
     </div>
   }
 
-  @if (resultado(); as r) {
-    <app-resumen [resumen]="r.resumen" />
-    <app-tabla-resultados [detalle]="r.detalle" />
+  @if (reconciliation(); as result) {
+    <app-summary [summary]="result.summary" />
+    <app-results-table [results]="result.details" />
   }
 </main>
+
+<footer class="page-footer">
+  <div class="container">Prototipo de prueba técnica · Los datos son ficticios</div>
+</footer>

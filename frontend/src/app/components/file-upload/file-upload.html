@@ -1,0 +1,53 @@
+<section class="card" aria-labelledby="upload-title">
+  <h2 id="upload-title" class="section-title"><span class="step">1</span> Cargar archivos</h2>
+  <p class="section-subtitle">Selecciona los dos archivos CSV del periodo o usa los archivos de ejemplo.</p>
+
+  <div class="dropzones">
+    @for (slot of slots; track slot.kind) {
+      <div class="dropzone" [class.has-file]="slot.file()" [class.disabled]="loading()">
+        <input
+          type="file"
+          accept=".csv"
+          [attr.aria-label]="slot.title"
+          [disabled]="loading()"
+          (change)="onFileSelected(slot, $event)"
+        />
+        <span class="dropzone-icon" aria-hidden="true">
+          @if (slot.file()) {
+            <svg viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z" /></svg>
+          } @else {
+            <svg viewBox="0 0 24 24">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zm4 18H6V4h7v5h5zM8 15h8v2H8zm0-4h8v2H8z" />
+            </svg>
+          }
+        </span>
+        <span class="dropzone-title">{{ slot.title }}</span>
+        @if (slot.file(); as file) {
+          <span class="file-chip">{{ file.name }} · {{ formatSize(file) }}</span>
+          <span class="dropzone-hint">Haz clic para cambiarlo</span>
+        } @else {
+          <span class="dropzone-hint">
+            Arrastra <strong>{{ slot.expectedFileName }}</strong> aquí o haz clic para buscarlo
+          </span>
+        }
+      </div>
+    }
+  </div>
+
+  @if (warning(); as message) {
+    <p class="warning" role="alert">{{ message }}</p>
+  }
+
+  <div class="actions">
+    <button type="button" class="btn-secondary" (click)="useSampleFiles()" [disabled]="loading()">
+      Usar archivos de ejemplo
+    </button>
+    <button type="button" class="btn-primary" (click)="submit()" [disabled]="!canSubmit()">
+      @if (loading()) {
+        <span class="spinner" aria-hidden="true"></span> Procesando…
+      } @else {
+        Procesar conciliación
+      }
+    </button>
+  </div>
+</section>

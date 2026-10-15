@@ -1,15 +1,25 @@
+/* Color palette inspired by Bancolombia: yellow + charcoal, with green/red only for statuses. */
 :root {
-  --acento: #1d4e89;
-  --texto: #1f2933;
-  --texto-suave: #5f6c7b;
-  --borde: #e1e6ec;
-  --borde-fuerte: #b8c2cf;
-  --fondo: #f4f6f9;
-  --fondo-suave: #f8fafc;
-  --ok: #1b7f4b;
-  --ok-fondo: #e3f4ea;
-  --error: #b3261e;
-  --error-fondo: #fdf1f0;
+  --brand-yellow: #fdda24;
+  --brand-yellow-dark: #e5c200;
+  --brand-yellow-soft: #fff8d6;
+  --ink: #2c2a29;
+  --ink-soft: #454241;
+  --text: #2c2a29;
+  --text-muted: #6d6a68;
+  --border: #e7e4df;
+  --border-strong: #c9c5bf;
+  --background: #f4f3f0;
+  --background-soft: #faf9f7;
+  --surface: #ffffff;
+  --ok: #00825a;
+  --ok-background: #e2f5ec;
+  --error: #c8312a;
+  --error-background: #fdeeec;
+  --info: #0b7ea3;
+  --info-background: #e6f5fa;
+  --radius: 16px;
+  --shadow: 0 1px 2px rgb(44 42 41 / 6%), 0 4px 16px rgb(44 42 41 / 6%);
 }
 
 * {
@@ -18,53 +28,111 @@
 
 body {
   margin: 0;
-  font-family: 'Segoe UI', system-ui, -apple-system, Roboto, Arial, sans-serif;
-  color: var(--texto);
-  background: var(--fondo);
-  line-height: 1.45;
+  font-family: 'Open Sans', 'Segoe UI', system-ui, -apple-system, Roboto, Arial, sans-serif;
+  color: var(--text);
+  background: var(--background);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
 }
 
-.contenido {
+.container {
   width: min(1200px, 100% - 2rem);
   margin-inline: auto;
 }
 
-.tarjeta {
-  padding: 1.25rem;
-  background: #fff;
-  border: 1px solid var(--borde);
-  border-radius: 12px;
+
+.card {
+  padding: 1.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
 }
 
-.tarjeta h2 {
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
   margin: 0;
-  font-size: 1.15rem;
+  font-size: 1.2rem;
+  font-weight: 800;
 }
 
-.primario {
+.step {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--brand-yellow);
+  color: var(--ink);
+  font-size: 0.95rem;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.section-subtitle {
+  margin: 0.35rem 0 0 2.75rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+
+.btn-primary,
+.btn-secondary {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
-  padding: 0.6rem 1.25rem;
-  border: none;
-  border-radius: 8px;
-  background: var(--acento);
-  color: #fff;
+  min-height: 2.75rem;
+  padding: 0.6rem 1.5rem;
+  border-radius: 999px;
   font: inherit;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
 }
 
-.primario:disabled {
-  background: var(--borde-fuerte);
+.btn-primary {
+  border: none;
+  background: var(--brand-yellow);
+  color: var(--ink);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--brand-yellow-dark);
+}
+
+.btn-primary:active:not(:disabled),
+.btn-secondary:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.btn-secondary {
+  border: 2px solid var(--ink);
+  background: transparent;
+  color: var(--ink);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--ink);
+  color: #fff;
+}
+
+.btn-primary:disabled,
+.btn-secondary:disabled {
+  background: var(--border);
+  border-color: var(--border);
+  color: var(--text-muted);
   cursor: not-allowed;
 }
 
 button:focus-visible,
 input:focus-visible {
-  outline: 3px solid #7aa7e0;
+  outline: 3px solid var(--ink);
   outline-offset: 2px;
 }
+
 
 .spinner {
   width: 1em;
@@ -72,16 +140,26 @@ input:focus-visible {
   border: 2px solid currentColor;
   border-right-color: transparent;
   border-radius: 50%;
-  animation: girar 0.7s linear infinite;
+  animation: spin 0.7s linear infinite;
 }
 
-.spinner.grande {
-  width: 1.5rem;
-  height: 1.5rem;
+.spinner.large {
+  width: 2rem;
+  height: 2rem;
+  border-width: 3px;
+  border-color: var(--brand-yellow);
+  border-right-color: transparent;
 }
 
-@keyframes girar {
+@keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 2s !important;
+    transition: none !important;
   }
 }

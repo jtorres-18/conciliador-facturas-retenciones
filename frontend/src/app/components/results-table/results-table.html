@@ -1,0 +1,76 @@
+<section class="card" aria-labelledby="results-title">
+  <div class="header">
+    <h2 id="results-title" class="section-title"><span class="step">3</span> Detalle por factura</h2>
+    <div class="filters" role="group" aria-label="Filtrar por estado">
+      @for (option of filterOptions(); track option.value) {
+        <button
+          type="button"
+          class="filter"
+          [class.active]="selectedFilter() === option.value"
+          [attr.aria-pressed]="selectedFilter() === option.value"
+          (click)="selectFilter(option.value)"
+        >
+          {{ option.label }} <span class="counter">{{ option.count }}</span>
+        </button>
+      }
+    </div>
+  </div>
+
+  <div class="table-container">
+    <table>
+      <thead>
+        <tr>
+          <th title="Línea del archivo facturas.csv">Fila</th>
+          <th>Factura</th>
+          <th>NIT</th>
+          <th>Concepto</th>
+          <th class="amount">Total factura</th>
+          <th class="amount">Contabilizado</th>
+          <th>Estado</th>
+          <th>Causas</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (result of filteredResults(); track result.rowNumber) {
+          <tr [class.has-errors]="result.status !== 'Correcta'">
+            <td class="row-number">{{ result.rowNumber }}</td>
+            <td class="invoice-id">{{ result.invoiceId || '—' }}</td>
+            <td>{{ result.supplierTaxId || '—' }}</td>
+            <td>{{ result.concept || '—' }}</td>
+            <td class="amount">{{ result.totalAmount | copCurrency }}</td>
+            <td class="amount">{{ result.postedAmount | copCurrency }}</td>
+            <td>
+              <span class="badge" [class.badge-ok]="result.status === 'Correcta'" [class.badge-error]="result.status !== 'Correcta'">
+                {{ result.status }}
+              </span>
+            </td>
+            <td>
+              @if (result.errors.length || result.warnings.length) {
+                <ul class="findings">
+                  @for (error of result.errors; track error.code) {
+                    <li class="finding-error">
+                      <strong>{{ error.description }}</strong>
+                      <span>{{ error.message }}</span>
+                    </li>
+                  }
+                  @for (warning of result.warnings; track warning.code) {
+                    <li class="finding-warning">
+                      <strong>Advertencia</strong>
+                      <span>{{ warning.message }}</span>
+                    </li>
+                  }
+                </ul>
+              } @else {
+                <span class="no-findings">Sin observaciones</span>
+              }
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="8" class="empty">No hay facturas con este estado.</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</section>

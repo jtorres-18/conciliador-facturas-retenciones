@@ -8,12 +8,44 @@ Prototipo web que cruza las **facturas de proveedores** con los **registros cont
 
 ```
 conciliador/
-├── backend/            API en Python (app/conciliador.py = reglas, app/main.py = endpoints, tests/)
+├── backend/            API en Python (ver "Arquitectura")
 ├── frontend/           Aplicación Angular
 ├── datos_prueba/       facturas.csv y contabilidad.csv de ejemplo
 ├── Presentacion_Conciliador.pptx   Presentación ejecutiva (5 diapositivas)
 └── DECLARACION_IA.md   Declaración sobre el uso de IA generativa
 ```
+
+El código (clases, funciones, variables) está en inglés; los textos que ve el usuario están en español. Las columnas de los CSV se mantienen en español porque así las entrega el área de negocio.
+
+## Arquitectura
+
+El backend está separado en capas sencillas, inspiradas en *Clean Architecture*. Cada capa solo depende de las que están más adentro, y las reglas de negocio no saben nada de FastAPI ni de HTTP:
+
+```
+backend/app/
+├── main.py                         Crea la app FastAPI, CORS y registra las rutas
+├── config.py                       Configuración (tamaño máximo de archivo, orígenes CORS)
+├── api/                            Capa HTTP
+│   ├── reconciliation_router.py    Endpoints: recibe archivos, traduce errores a códigos HTTP
+│   └── schemas.py                  Contrato de respuesta (Pydantic, JSON en camelCase)
+├── services/
+│   └── reconciliation_service.py   Caso de uso: leer → evaluar reglas → armar resumen
+├── domain/                         Corazón del negocio (sin dependencias externas)
+│   ├── models.py                   Invoice, AccountingRecord, Finding, resultados
+│   ├── rules.py                    Una clase por regla de validación
+│   └── money.py                    Tolerancia de redondeo y formato en pesos
+└── infrastructure/
+    └── csv_reader.py               Lectura de CSV (codificación, separador, columnas)
+```
+
+Principios aplicados:
+
+- **Responsabilidad única:** cada regla de negocio es una clase pequeña (`VatRule`, `InvoiceTotalRule`, `DuplicateInvoiceRule`…) que valida una sola cosa y se puede probar por separado (`tests/test_rules.py`).
+- **Abierto/cerrado:** para agregar una regla nueva se crea una clase que herede de `InvoiceRule` y se registra en `DEFAULT_RULES`; el servicio no cambia.
+- **Inversión de dependencias:** el servicio recibe la lista de reglas en su constructor y el endpoint recibe el servicio con `Depends`, así se pueden reemplazar en pruebas.
+- **Cálculos en la entidad:** `Invoice.expected_vat()` y `Invoice.expected_total()` concentran las fórmulas tributarias en un solo lugar.
+
+El frontend sigue la misma idea: un **servicio** (`ReconciliationService`) que habla con la API, un **modelo** con el contrato tipado y tres **componentes** de presentación (`FileUpload`, `Summary`, `ResultsTable`) que se comunican con `input()` / `output()`.
 
 ## Requisitos
 
@@ -39,7 +71,7 @@ pip install -r requirements.txt
 uvicorn app.main:app --port 8000
 ```
 
-Debe aparecer `Uvicorn running on http://127.0.0.1:8000`. Comprobación rápida: abrir http://localhost:8000/api/salud (responde `{"estado":"ok"}`). La documentación interactiva de la API queda en http://localhost:8000/docs.
+Debe aparecer `Uvicorn running on http://127.0.0.1:8000`. Comprobación rápida: abrir http://localhost:8000/api/health (responde `{"status":"ok"}`). La documentación interactiva de la API queda en http://localhost:8000/docs.
 
 > Si PowerShell bloquea el script de activación, ejecuta antes `Set-ExecutionPolicy -Scope Process Bypass`.
 
@@ -76,59 +108,62 @@ Una factura puede tener varias causas (por eso la suma supera 18). Además hay 4
 ### Pruebas automáticas
 
 ```powershell
-cd backend ; pytest                          # 31 pruebas (reglas y API), con el entorno virtual activo
+cd backend ; python -m pytest                # 39 pruebas (reglas, servicio y API), con el entorno virtual activo
 cd frontend ; npm test -- --watch=false      # 4 pruebas (flujo de la pantalla, filtro y errores)
 ```
 
 ## Reglas de negocio implementadas
 
-Para cada fila de `facturas.csv` se evalúa (módulo [`backend/app/conciliador.py`](backend/app/conciliador.py)):
+Para cada fila de `facturas.csv` se evalúan estas reglas (archivo [`backend/app/domain/rules.py`](backend/app/domain/rules.py)):
 
-| Código | Regla |
-|---|---|
-| `IVA_INCORRECTO` | `valor_iva` ≠ `base_gravable × tarifa_iva` |
-| `TOTAL_INCORRECTO` | `total_factura` ≠ `base_gravable + IVA esperado − valor_retencion` |
-| `DUPLICADA` | El `id_factura` aparece más de una vez en `facturas.csv` |
-| `SIN_CONTABILIDAD` | No existe ningún registro con ese `id_factura` en `contabilidad.csv` |
-| `ESTADO_PENDIENTE` | Algún registro contable no está en estado `Contabilizada` |
-| `VALOR_CONTABLE_DIFERENTE` | La suma de `valor_debito` ≠ `total_factura` |
-| `CAMPO_VACIO` | Falta alguno de los 10 campos de la factura |
-| `RETENCION_INCORRECTA` | `valor_retencion` ≠ `base_gravable × tarifa_retencion` *(adicional)* |
-| `DESCUADRE_CONTABLE` | Suma de débitos ≠ suma de créditos *(adicional)* |
-| `CONTABILIDAD_DUPLICADA` | Más de una línea contable con valor para la misma factura *(adicional)* |
-| `VALOR_NO_NUMERICO`, `FECHA_INVALIDA` | Formato inválido (fecha esperada `AAAA-MM-DD`) *(adicional)* |
+| Código | Clase | Regla |
+|---|---|---|
+| `VAT_MISMATCH` | `VatRule` | `valor_iva` ≠ `base_gravable × tarifa_iva` |
+| `TOTAL_MISMATCH` | `InvoiceTotalRule` | `total_factura` ≠ `base_gravable + IVA esperado − valor_retencion` |
+| `DUPLICATE_INVOICE` | `DuplicateInvoiceRule` | El `id_factura` aparece más de una vez en `facturas.csv` |
+| `MISSING_ACCOUNTING_RECORD` | `MissingAccountingRecordRule` | No existe ningún registro con ese `id_factura` en `contabilidad.csv` |
+| `PENDING_POSTING` | `PendingPostingRule` | Algún registro contable no está en estado `Contabilizada` |
+| `ACCOUNTING_AMOUNT_MISMATCH` | `AccountingAmountRule` | La suma de `valor_debito` ≠ `total_factura` |
+| `EMPTY_FIELD` | `RequiredFieldsRule` | Falta alguno de los 10 campos de la factura |
+| `WITHHOLDING_MISMATCH` | `WithholdingRule` | `valor_retencion` ≠ `base_gravable × tarifa_retencion` *(adicional)* |
+| `UNBALANCED_ENTRY` | `UnbalancedEntryRule` | Suma de débitos ≠ suma de créditos *(adicional)* |
+| `DUPLICATE_ACCOUNTING_ENTRY` | `DuplicateAccountingEntryRule` | Más de una línea contable con valor para la misma factura *(adicional)* |
+| `NON_NUMERIC_VALUE`, `INVALID_DATE` | `NumericValuesRule`, `IssueDateFormatRule` | Formato inválido (fecha esperada `AAAA-MM-DD`) *(adicional)* |
+| `ZERO_AMOUNT_ACCOUNTING_LINE` | `ZeroAmountLineRule` | Línea contable con débito y crédito en 0 *(solo advertencia)* |
 
-Una factura es **Correcta** si no tiene ninguna causa; si tiene al menos una, es **Con inconsistencia** y se listan todas.
+Una factura es **Correcta** si no tiene ninguna inconsistencia; si tiene al menos una, es **Con inconsistencia** y se listan todas. En pantalla se muestra la descripción en español de cada causa, no el código.
 
 ## API
 
-`POST /api/conciliacion` — `multipart/form-data` con los campos `facturas` y `contabilidad` (archivos `.csv`).
+`POST /api/reconciliations` — `multipart/form-data` con los campos `invoices` (facturas.csv) y `accounting` (contabilidad.csv).
 
-Respuesta 200:
+Respuesta 200 (JSON en camelCase, el estándar de JavaScript/TypeScript):
 
 ```json
 {
-  "resumen": {
-    "total_facturas": 50, "ids_unicos": 48, "correctas": 32, "con_inconsistencia": 18,
-    "correctas_con_advertencia": 4,
-    "por_causa": [{"codigo": "DUPLICADA", "descripcion": "Factura duplicada", "cantidad": 4}],
-    "por_advertencia": [], "registros_contables": 50, "contabilidad_sin_factura": []
+  "summary": {
+    "totalInvoices": 50, "uniqueInvoiceIds": 48, "correct": 32, "inconsistent": 18,
+    "correctWithWarnings": 4,
+    "errorsByCode": [{"code": "DUPLICATE_INVOICE", "description": "Factura duplicada", "count": 4}],
+    "warningsByCode": [{"code": "ZERO_AMOUNT_ACCOUNTING_LINE", "description": "Línea contable con valor 0", "count": 7}],
+    "accountingRecords": 50, "accountingWithoutInvoice": []
   },
-  "detalle": [{
-    "fila": 7, "id_factura": "FAC-0006", "estado": "Con inconsistencia",
-    "iva_esperado": 190000, "valor_iva": 215000, "total_esperado": 3990000, "total_factura": 3990000,
-    "valor_contabilizado": 3990000,
-    "causas": [{"codigo": "IVA_INCORRECTO", "mensaje": "IVA esperado 190.000 (3.800.000 × 0.05) pero la factura trae 215.000"}],
-    "advertencias": []
+  "details": [{
+    "rowNumber": 7, "invoiceId": "FAC-0006", "status": "Con inconsistencia",
+    "expectedVat": 190000, "vatAmount": 215000, "expectedTotal": 3990000, "totalAmount": 3990000,
+    "postedAmount": 3990000, "postingStatus": "Contabilizada",
+    "errors": [{"code": "VAT_MISMATCH", "description": "IVA diferente a base × tarifa",
+                "message": "IVA esperado 190.000 (3.800.000 × 0.05) pero la factura trae 215.000"}],
+    "warnings": []
   }]
 }
 ```
 
-`fila` es el número de línea en `facturas.csv`, para poder ubicar el registro en el archivo original.
+`rowNumber` es el número de línea en `facturas.csv`, para poder ubicar el registro en el archivo original. El esquema completo queda documentado en http://localhost:8000/docs.
 
 Errores: `400` con `{"detail": "<mensaje>"}` si el archivo no es `.csv`, está vacío, no tiene registros o le faltan columnas; `413` si pesa más de 5 MB; `422` si falta alguno de los dos archivos.
 
-`GET /api/salud` — verificación de que el servicio está activo.
+`GET /api/health` — verificación de que el servicio está activo.
 
 ## Supuestos y decisiones
 
@@ -139,7 +174,7 @@ Errores: `400` con `{"detail": "<mensaje>"}` si el archivo no es `.csv`, está v
 5. **Líneas contables con débito y crédito en 0** (FAC-0001 a 0006 tienen una segunda línea así): no cuentan como inconsistencia ni afectan los cálculos; la factura queda con una **advertencia** visible.
 6. **"Pendiente" es inconsistencia**, porque el proceso busca diferencias de estado de contabilización.
 7. **Duplicados:** todas las filas que comparten `id_factura` se marcan como duplicadas (no se asume cuál es la "original"). Los duplicados se detectan solo por `id_factura`, no por combinación de proveedor + valor.
-8. **Campo vacío es inconsistencia** para cualquiera de los 10 campos de la factura. En `contabilidad.csv` solo se exige que existan las columnas.
+8. **Campo vacío es inconsistencia** para cualquiera de los 10 campos de la factura. En `contabilidad.csv` solo se exige que existan las columnas; un débito o crédito vacío o no numérico se toma como 0.
 9. **"Total de facturas" cuenta filas procesadas** (50), e informa aparte los números de factura distintos (48).
 10. **Formato de archivos:** UTF-8 o Latin-1; separador coma o punto y coma (se detecta); fechas `AAAA-MM-DD`; tarifas como decimal (`0.19`).
 11. **Sin persistencia:** el servicio no guarda nada; cada procesamiento es independiente.
@@ -151,7 +186,7 @@ Errores: `400` con `{"detail": "<mensaje>"}` si el archivo no es `.csv`, está v
 - Autenticación, persistencia, histórico de conciliaciones y manejo de varios periodos.
 - Conciliación contra otras fuentes o corrección automática de las inconsistencias: el prototipo solo las reporta.
 - Pruebas end-to-end automatizadas con navegador (el flujo completo se verificó manualmente).
-- Despliegue o configuración de producción: el CORS permite solo `localhost:4200` y la URL del backend está en `frontend/src/app/services/conciliacion.service.ts` (`API_URL`).
+- Despliegue o configuración de producción: el CORS permite solo `localhost:4200` y la URL del backend está en `frontend/src/app/services/reconciliation.service.ts` (`API_URL`).
 
 ## Declaración sobre IA generativa
 

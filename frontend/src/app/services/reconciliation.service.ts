@@ -2,25 +2,24 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
-import { Resultado } from '../models/conciliacion.model';
+import { ReconciliationResponse } from '../models/reconciliation.model';
 
-/** Dirección del backend Python. Cámbiala aquí si el backend corre en otro puerto. */
 export const API_URL = 'http://localhost:8000/api';
 
 @Injectable({ providedIn: 'root' })
-export class ConciliacionService {
+export class ReconciliationService {
   private readonly http = inject(HttpClient);
 
-  procesar(facturas: File, contabilidad: File): Observable<Resultado> {
-    const datos = new FormData();
-    datos.append('facturas', facturas);
-    datos.append('contabilidad', contabilidad);
-    return this.http.post<Resultado>(`${API_URL}/conciliacion`, datos);
+  reconcile(invoicesFile: File, accountingFile: File): Observable<ReconciliationResponse> {
+    const formData = new FormData();
+    formData.append('invoices', invoicesFile);
+    formData.append('accounting', accountingFile);
+    return this.http.post<ReconciliationResponse>(`${API_URL}/reconciliations`, formData);
   }
 }
 
-/** Traduce un error HTTP a un mensaje entendible para el usuario. */
-export function mensajeDeError(error: unknown): string {
+/** Turns an HTTP error into a message the user can understand. */
+export function toUserMessage(error: unknown): string {
   if (!(error instanceof HttpErrorResponse)) {
     return 'Ocurrió un error inesperado al procesar los archivos.';
   }
@@ -30,9 +29,9 @@ export function mensajeDeError(error: unknown): string {
   if (error.status === 422) {
     return 'Debes seleccionar los dos archivos: facturas y contabilidad.';
   }
-  const detalle = error.error?.detail;
-  if (typeof detalle === 'string') {
-    return detalle;
+  const detail = error.error?.detail;
+  if (typeof detail === 'string') {
+    return detail;
   }
   return `El servicio respondió con un error (${error.status}). Inténtalo de nuevo.`;
 }
