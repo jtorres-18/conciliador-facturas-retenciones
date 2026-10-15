@@ -1,0 +1,55 @@
+<section class="tarjeta" aria-labelledby="titulo-resumen">
+  <h2 id="titulo-resumen">2. Resumen</h2>
+
+  <div class="metricas">
+    <div class="metrica">
+      <span class="valor">{{ resumen().total_facturas }}</span>
+      <span class="nombre">Facturas procesadas</span>
+      <span class="detalle">{{ resumen().ids_unicos }} números de factura distintos</span>
+    </div>
+    <div class="metrica ok">
+      <span class="valor">{{ resumen().correctas }}</span>
+      <span class="nombre">Correctas</span>
+      @if (resumen().correctas_con_advertencia) {
+        <span class="detalle">{{ resumen().correctas_con_advertencia }} con advertencia</span>
+      }
+    </div>
+    <div class="metrica error">
+      <span class="valor">{{ resumen().con_inconsistencia }}</span>
+      <span class="nombre">Con inconsistencia</span>
+      <span class="detalle">{{ porcentajeInconsistentes() }}% del total</span>
+    </div>
+  </div>
+
+  @if (resumen().por_causa.length) {
+    <h3>Inconsistencias por causa</h3>
+    <ul class="causas">
+      @for (causa of resumen().por_causa; track causa.codigo) {
+        <li>
+          <span class="causa-nombre">{{ causa.descripcion }}</span>
+          <span class="barra" aria-hidden="true">
+            <span class="relleno" [style.width.%]="(causa.cantidad / maximoCausa()) * 100"></span>
+          </span>
+          <span class="causa-cantidad">{{ causa.cantidad }}</span>
+        </li>
+      }
+    </ul>
+  } @else {
+    <p class="vacio">No se encontraron inconsistencias.</p>
+  }
+
+  @if (resumen().por_advertencia.length || resumen().contabilidad_sin_factura.length) {
+    <h3>Advertencias</h3>
+    <ul class="notas">
+      @for (adv of resumen().por_advertencia; track adv.codigo) {
+        <li>{{ adv.descripcion }}: {{ adv.cantidad }} factura(s). No cuentan como inconsistencia.</li>
+      }
+      @if (resumen().contabilidad_sin_factura.length) {
+        <li>
+          Registros contables sin factura:
+          {{ resumen().contabilidad_sin_factura.join(', ') }}
+        </li>
+      }
+    </ul>
+  }
+</section>

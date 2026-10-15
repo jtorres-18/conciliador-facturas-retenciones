@@ -1,0 +1,39 @@
+.cabecera {
+  background: var(--acento);
+  color: #fff;
+  padding: 1.5rem 0;
+}
+
+.cabecera h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.5rem;
+}
+
+.cabecera p {
+  margin: 0;
+  opacity: 0.9;
+}
+
+main {
+  display: grid;
+  gap: 1.5rem;
+  padding-top: 1.5rem;
+  padding-bottom: 3rem;
+}
+
+.estado {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--texto-suave);
+}
+
+.error-caja {
+  border-color: var(--error);
+  background: var(--error-fondo);
+  color: var(--error);
+}
+
+.error-caja p {
+  margin: 0.25rem 0 0;
+}

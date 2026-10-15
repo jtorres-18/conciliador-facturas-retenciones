@@ -1,0 +1,70 @@
+<section class="tarjeta" aria-labelledby="titulo-detalle">
+  <div class="encabezado">
+    <h2 id="titulo-detalle">3. Detalle por factura</h2>
+    <div class="filtros" role="group" aria-label="Filtrar por estado">
+      @for (opcion of opciones(); track opcion.valor) {
+        <button
+          type="button"
+          class="filtro"
+          [class.activo]="filtro() === opcion.valor"
+          [attr.aria-pressed]="filtro() === opcion.valor"
+          (click)="seleccionar(opcion.valor)"
+        >
+          {{ opcion.etiqueta }} <span class="contador">{{ opcion.cantidad }}</span>
+        </button>
+      }
+    </div>
+  </div>
+
+  <div class="contenedor-tabla">
+    <table>
+      <thead>
+        <tr>
+          <th title="Línea del archivo facturas.csv">Fila</th>
+          <th>Factura</th>
+          <th>NIT</th>
+          <th>Concepto</th>
+          <th class="num">Total factura</th>
+          <th class="num">Contabilizado</th>
+          <th>Estado</th>
+          <th>Causas</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (f of filas(); track f.fila) {
+          <tr [class.con-error]="f.estado !== 'Correcta'">
+            <td>{{ f.fila }}</td>
+            <td class="id">{{ f.id_factura }}</td>
+            <td>{{ f.nit_proveedor || '—' }}</td>
+            <td>{{ f.concepto || '—' }}</td>
+            <td class="num">{{ f.total_factura | pesos }}</td>
+            <td class="num">{{ f.valor_contabilizado | pesos }}</td>
+            <td>
+              <span class="insignia" [class.insignia-ok]="f.estado === 'Correcta'" [class.insignia-error]="f.estado !== 'Correcta'">
+                {{ f.estado }}
+              </span>
+            </td>
+            <td>
+              @if (f.causas.length || f.advertencias.length) {
+                <ul class="lista-causas">
+                  @for (c of f.causas; track $index) {
+                    <li><strong>{{ c.codigo }}</strong> · {{ c.mensaje }}</li>
+                  }
+                  @for (a of f.advertencias; track $index) {
+                    <li class="adv">⚠ {{ a.mensaje }}</li>
+                  }
+                </ul>
+              } @else {
+                <span class="sin-causa">—</span>
+              }
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="8" class="vacio">No hay facturas con este estado.</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</section>

@@ -1,0 +1,38 @@
+<section class="tarjeta" aria-labelledby="titulo-carga">
+  <div class="encabezado">
+    <h2 id="titulo-carga">1. Cargar archivos</h2>
+    <button type="button" class="enlace" (click)="usarEjemplos()" [disabled]="cargando()">
+      Usar archivos de ejemplo
+    </button>
+  </div>
+
+  <div class="campos">
+    <label class="campo">
+      <span class="etiqueta">Facturas de proveedores</span>
+      <input type="file" accept=".csv" (change)="seleccionar('facturas', $event)" [disabled]="cargando()" />
+      @if (facturas(); as archivo) {
+        <span class="archivo">✓ {{ archivo.name }}</span>
+      }
+    </label>
+
+    <label class="campo">
+      <span class="etiqueta">Registros contables</span>
+      <input type="file" accept=".csv" (change)="seleccionar('contabilidad', $event)" [disabled]="cargando()" />
+      @if (contabilidad(); as archivo) {
+        <span class="archivo">✓ {{ archivo.name }}</span>
+      }
+    </label>
+  </div>
+
+  @if (aviso(); as mensaje) {
+    <p class="aviso" role="alert">{{ mensaje }}</p>
+  }
+
+  <button type="button" class="primario" (click)="enviar()" [disabled]="!puedeProcesar()">
+    @if (cargando()) {
+      <span class="spinner" aria-hidden="true"></span> Procesando…
+    } @else {
+      Procesar conciliación
+    }
+  </button>
+</section>

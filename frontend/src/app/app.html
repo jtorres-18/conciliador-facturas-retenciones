@@ -1,0 +1,29 @@
+<header class="cabecera">
+  <div class="contenido">
+    <h1>Conciliador de facturas y retenciones</h1>
+    <p>Cruza las facturas de proveedores con los registros contables y señala qué revisar y por qué.</p>
+  </div>
+</header>
+
+<main class="contenido">
+  <app-carga-archivos [cargando]="cargando()" (procesar)="procesar($event)" />
+
+  @if (cargando()) {
+    <div class="estado" role="status">
+      <span class="spinner grande" aria-hidden="true"></span>
+      Procesando la conciliación…
+    </div>
+  }
+
+  @if (error(); as mensaje) {
+    <div class="tarjeta error-caja" role="alert">
+      <strong>No se pudo completar la conciliación</strong>
+      <p>{{ mensaje }}</p>
+    </div>
+  }
+
+  @if (resultado(); as r) {
+    <app-resumen [resumen]="r.resumen" />
+    <app-tabla-resultados [detalle]="r.detalle" />
+  }
+</main>

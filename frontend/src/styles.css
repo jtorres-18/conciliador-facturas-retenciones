@@ -1,0 +1,87 @@
+:root {
+  --acento: #1d4e89;
+  --texto: #1f2933;
+  --texto-suave: #5f6c7b;
+  --borde: #e1e6ec;
+  --borde-fuerte: #b8c2cf;
+  --fondo: #f4f6f9;
+  --fondo-suave: #f8fafc;
+  --ok: #1b7f4b;
+  --ok-fondo: #e3f4ea;
+  --error: #b3261e;
+  --error-fondo: #fdf1f0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Segoe UI', system-ui, -apple-system, Roboto, Arial, sans-serif;
+  color: var(--texto);
+  background: var(--fondo);
+  line-height: 1.45;
+}
+
+.contenido {
+  width: min(1200px, 100% - 2rem);
+  margin-inline: auto;
+}
+
+.tarjeta {
+  padding: 1.25rem;
+  background: #fff;
+  border: 1px solid var(--borde);
+  border-radius: 12px;
+}
+
+.tarjeta h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.primario {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.25rem;
+  border: none;
+  border-radius: 8px;
+  background: var(--acento);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.primario:disabled {
+  background: var(--borde-fuerte);
+  cursor: not-allowed;
+}
+
+button:focus-visible,
+input:focus-visible {
+  outline: 3px solid #7aa7e0;
+  outline-offset: 2px;
+}
+
+.spinner {
+  width: 1em;
+  height: 1em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: girar 0.7s linear infinite;
+}
+
+.spinner.grande {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+@keyframes girar {
+  to {
+    transform: rotate(360deg);
+  }
+}
