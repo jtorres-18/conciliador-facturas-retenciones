@@ -11,6 +11,7 @@ conciliador/
 ├── backend/            API en Python (ver "Arquitectura")
 ├── frontend/           Aplicación Angular
 ├── datos_prueba/       facturas.csv y contabilidad.csv de ejemplo
+├── docker-compose.yml  Levanta backend y frontend con Docker
 ├── Presentacion_Conciliador.pptx   Presentación ejecutiva (5 diapositivas)
 └── DECLARACION_IA.md   Declaración sobre el uso de IA generativa
 ```
@@ -47,7 +48,41 @@ Principios aplicados:
 
 El frontend sigue la misma idea: un **servicio** (`ReconciliationService`) que habla con la API, un **modelo** con el contrato tipado y tres **componentes** de presentación (`FileUpload`, `Summary`, `ResultsTable`) que se comunican con `input()` / `output()`.
 
-## Requisitos
+## Cómo ejecutarlo
+
+Hay dos formas. Las dos dejan la aplicación en el mismo lugar: **frontend en http://localhost:4200** y **backend en http://localhost:8000**.
+
+- **Opción A: Docker.** Es la más rápida: un solo comando y no hace falta instalar Python ni Node.
+- **Opción B: manual.** Backend y frontend en dos terminales, útil para desarrollar.
+
+### Opción A: Docker
+
+Requisito: [Docker Desktop](https://www.docker.com/products/docker-desktop/) abierto (se probó con Docker 29.7 y Docker Compose 5.4).
+
+Desde la carpeta raíz del proyecto:
+
+```powershell
+docker compose up --build
+```
+
+La primera vez tarda unos minutos porque descarga las imágenes y compila el frontend. Cuando aparezca que los dos contenedores iniciaron, abrir **http://localhost:4200** y seguir los pasos de [Probar el flujo](#probar-el-flujo).
+
+Para detenerlo: `Ctrl + C` y luego `docker compose down`.
+
+Qué levanta (`docker-compose.yml`):
+
+| Servicio | Imagen | Puerto |
+|---|---|---|
+| `backend` | `python:3.12-slim` con FastAPI y Uvicorn | 8000 |
+| `frontend` | Angular compilado con `node:24-alpine` y servido con `nginx:1.27-alpine` | 4200 |
+
+El frontend espera a que el backend responda en `/api/health` antes de iniciar.
+
+> Si los puertos 4200 u 8000 ya están ocupados (por ejemplo, por la opción B corriendo al mismo tiempo), detén esos procesos primero.
+
+### Opción B: manual
+
+#### Requisitos
 
 | Herramienta | Versión con la que se probó | Descarga |
 |---|---|---|
@@ -57,11 +92,9 @@ El frontend sigue la misma idea: un **servicio** (`ReconciliationService`) que h
 
 Las dependencias exactas están en `backend/requirements.txt` y `frontend/package.json`. Todo es software libre. Se necesita conexión a internet solo para instalar paquetes.
 
-## Cómo ejecutarlo
-
 Se necesitan **dos terminales**: una para el backend y otra para el frontend. Los comandos son para PowerShell en Windows; en macOS/Linux solo cambia la activación del entorno virtual (se indica abajo).
 
-### 1. Backend (puerto 8000)
+#### 1. Backend (puerto 8000)
 
 ```powershell
 cd backend
@@ -75,7 +108,7 @@ Debe aparecer `Uvicorn running on http://127.0.0.1:8000`. Comprobación rápida:
 
 > Si PowerShell bloquea el script de activación, ejecuta antes `Set-ExecutionPolicy -Scope Process Bypass`.
 
-### 2. Frontend (puerto 4200)
+#### 2. Frontend (puerto 4200)
 
 ```powershell
 cd frontend
@@ -85,7 +118,7 @@ npm start
 
 Cuando termine de compilar, abrir **http://localhost:4200**.
 
-### 3. Probar el flujo
+### Probar el flujo
 
 1. En la pantalla, pulsar **"Usar archivos de ejemplo"** (carga `datos_prueba/facturas.csv` y `datos_prueba/contabilidad.csv`) o seleccionar los archivos manualmente.
 2. Pulsar **"Procesar conciliación"**.
