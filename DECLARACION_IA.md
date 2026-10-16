@@ -5,3 +5,4 @@ Sí se utilizó inteligencia artificial generativa, mediante **Claude (Anthropic
 - **Documentación:** apoyo en la redacción y organización de la documentación del proyecto.
 - **Diapositivas:** apoyo en la elaboración y organización de la presentación del prototipo.
 - **Comprensión del negocio:** aclaración de dudas sobre conceptos contables y tributarios necesarios para comprender el caso y sus reglas de negocio.
+- **Revisión de código:** apoyo en la identificación de posibles errores, malas prácticas y oportunidades de mejora en la claridad y organización del código.
