@@ -124,7 +124,7 @@ Cuando termine de compilar, abrir **http://localhost:4200**.
 2. Pulsar **"Procesar conciliación"**.
 3. Revisar el resumen y la tabla de detalle; filtrar por **Todas / Correctas / Con inconsistencia**.
 
-**Resultado esperado con los archivos de ejemplo:** 50 filas de factura (48 números distintos), **32 correctas y 18 con inconsistencia**.
+**Resultado esperado con los archivos de ejemplo:** 50 registros procesados (48 facturas distintas), **32 correctos y 18 con inconsistencia**.
 
 | Causa | Cantidad | Facturas |
 |---|---|---|
@@ -165,7 +165,7 @@ Para cada fila de `facturas.csv` se evalúan estas reglas (archivo [`backend/app
 | `INVALID_ACCOUNTING_DATA` | `AccountingDataQualityRule` | Campo contable vacío, débito/crédito no numérico o fecha inválida (fila y campo) |
 | `ZERO_AMOUNT_ACCOUNTING_LINE` | `ZeroAmountLineRule` | Línea contable con débito y crédito en 0 *(solo advertencia)* |
 
-Una factura es **Correcta** si no tiene ninguna inconsistencia; si tiene al menos una, es **Con inconsistencia** y se listan todas. En pantalla se muestra la descripción en español de cada causa, no el código.
+Una factura es **Correcta** si pasó las validaciones del prototipo, es decir, no tiene ninguna inconsistencia; si tiene al menos una, es **Con inconsistencia** y se listan todas. En pantalla se muestra la descripción en español de cada causa, no el código.
 
 ## API
 
@@ -209,7 +209,7 @@ Errores: `400` con `{"detail": "<mensaje>"}` si el archivo no es `.csv`, está v
 6. **"Pendiente" es inconsistencia**, porque el proceso busca diferencias de estado de contabilización.
 7. **Duplicados:** todas las filas que comparten `id_factura` se marcan como duplicadas (no se asume cuál es la "original"). Los duplicados se detectan solo por `id_factura`, no por combinación de proveedor + valor.
 8. **Campo vacío es inconsistencia** para cualquiera de los 10 campos de la factura. En `contabilidad.csv` también: un campo vacío, un débito/crédito no numérico o una fecha de contabilización que no sea AAAA-MM-DD genera `INVALID_ACCOUNTING_DATA`, indicando fila y campo. Un valor vacío o ilegible nunca se convierte en 0; solo un `0` explícito es cero.
-9. **"Total de facturas" cuenta filas procesadas** (50), e informa aparte los números de factura distintos (48).
+9. **El total cuenta registros procesados** (50, una fila de `facturas.csv` cada uno), e informa aparte las facturas distintas (48).
 10. **Formato de archivos:** UTF-8 o Latin-1; separador coma o punto y coma (se detecta); fechas `AAAA-MM-DD`; tarifas como decimal (`0.19`).
 11. **Sin persistencia:** el servicio no guarda nada; cada procesamiento es independiente.
 12. **Datos de ejemplo duplicados:** `frontend/public/ejemplos/` contiene copia de los CSV de `datos_prueba/` solo para el botón "Usar archivos de ejemplo" (Angular no permite servir archivos fuera de su carpeta).
