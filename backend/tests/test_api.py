@@ -61,3 +61,28 @@ def test_missing_file_returns_422():
 
 def test_health():
     assert client.get("/api/health").json() == {"status": "ok"}
+
+
+def test_empty_accounting_invoice_id_returns_400_with_file_row_and_field():
+    accounting = b",2026-01-02,511010,CC1,5,5,Contabilizada\n"
+    header = b"id_factura,fecha_contabilizacion,cuenta_contable,centro_costo,valor_debito,valor_credito,estado\n"
+    response = post_files(accounting=upload("contabilidad.csv", header + accounting))
+    assert response.status_code == 400
+    detail = response.json()["detail"]
+    assert "contabilidad.csv" in detail and "fila 2" in detail and "id_factura" in detail
+
+
+def test_not_calculable_posted_amount_is_flagged_in_the_response():
+    header = b"id_factura,fecha_contabilizacion,cuenta_contable,centro_costo,valor_debito,valor_credito,estado\n"
+    invoices = (
+        b"id_factura,nit_proveedor,fecha_factura,concepto,base_gravable,tarifa_iva,valor_iva,"
+        b"tarifa_retencion,valor_retencion,total_factura\n"
+        b"F1,900,2026-01-01,Soporte,1000000,0,0,0,0,1000000\n"
+    )
+    response = post_files(
+        invoices=upload("facturas.csv", invoices),
+        accounting=upload("contabilidad.csv", header + b"F1,2026-01-02,511010,CC1,abc,1000000,Contabilizada\n"),
+    )
+    detail = response.json()["details"][0]
+    assert detail["postedAmount"] is None
+    assert detail["postedAmountCalculable"] is False

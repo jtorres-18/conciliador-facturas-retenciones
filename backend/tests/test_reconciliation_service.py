@@ -166,3 +166,36 @@ def test_several_accounting_lines_with_value_are_only_a_warning():
     result = report.results[0]
     assert result.status == InvoiceStatus.CORRECT
     assert [w.code for w in result.warnings] == ["DUPLICATE_ACCOUNTING_ENTRY"]
+
+
+def test_empty_accounting_invoice_id_is_rejected_with_file_row_and_field():
+    with pytest.raises(InvalidFileError) as error:
+        reconcile(
+            INVOICE_F1,
+            ACCOUNTING_HEADER
+            + "F1,2026-01-02,511010,CC1,1000000,1000000,Contabilizada\n"
+            + ",2026-01-02,511010,CC1,5,5,Contabilizada\n",
+        )
+    message = str(error.value)
+    assert "contabilidad.csv" in message
+    assert "fila 3" in message
+    assert "id_factura" in message
+
+
+@pytest.mark.parametrize("line", [
+    "F1,2026-01-02,511010,CC1,abc,1000000,Contabilizada",
+    "F1,2026-01-02,511010,CC1,,1000000,Contabilizada",
+])
+def test_invalid_debit_makes_the_sum_not_calculable_and_skips_dependent_checks(line):
+    result = reconcile(INVOICE_F1, ACCOUNTING_HEADER + line + "\n").results[0]
+    assert result.accounting.total_debit is None
+    assert result.accounting.total_credit == 1000000
+    assert error_codes(result) == ["INVALID_ACCOUNTING_DATA"]
+
+
+def test_invalid_credit_only_skips_the_balance_check():
+    result = reconcile(
+        INVOICE_F1, ACCOUNTING_HEADER + "F1,2026-01-02,511010,CC1,900000,xyz,Contabilizada\n"
+    ).results[0]
+    assert result.accounting.total_credit is None
+    assert sorted(error_codes(result)) == ["ACCOUNTING_AMOUNT_MISMATCH", "INVALID_ACCOUNTING_DATA"]

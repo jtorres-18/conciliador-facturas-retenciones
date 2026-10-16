@@ -59,6 +59,7 @@ class InvoiceResultResponse(CamelCaseModel):
     expected_total: float | None
     total_with_recalculated_vat: float | None
     posted_amount: float | None
+    posted_amount_calculable: bool
     posting_status: str | None
     status: InvoiceStatus
     errors: list[FindingResponse]
@@ -82,6 +83,7 @@ class InvoiceResultResponse(CamelCaseModel):
             expected_total=_to_float(invoice.expected_total()),
             total_with_recalculated_vat=_to_float(invoice.total_with_recalculated_vat()),
             posted_amount=_to_float(accounting.total_debit) if accounting else None,
+            posted_amount_calculable=accounting is None or accounting.total_debit is not None,
             posting_status=accounting.status_label() if accounting else None,
             status=result.status,
             errors=[FindingResponse.from_domain(finding) for finding in result.errors],

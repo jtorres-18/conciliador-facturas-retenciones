@@ -38,7 +38,7 @@
             <td>{{ result.supplierTaxId || '—' }}</td>
             <td>{{ result.concept || '—' }}</td>
             <td class="amount">{{ result.totalAmount | copCurrency }}</td>
-            <td class="amount">{{ result.postedAmount | copCurrency }}</td>
+            <td class="amount">{{ result.postedAmountCalculable ? (result.postedAmount | copCurrency) : 'No calculable' }}</td>
             <td>
               <span class="badge" [class.badge-ok]="result.status === 'Correcta'" [class.badge-error]="result.status !== 'Correcta'">
                 {{ result.status }}

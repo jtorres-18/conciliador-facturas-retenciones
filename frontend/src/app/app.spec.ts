@@ -26,13 +26,13 @@ const RESPONSE: ReconciliationResponse = {
     {
       rowNumber: 2, invoiceId: 'F1', supplierTaxId: '900', issueDate: '2026-01-01', concept: 'Soporte',
       taxableBase: 100, vatAmount: 0, expectedVat: 0, withholdingAmount: 0, totalAmount: 100,
-      expectedTotal: 100, totalWithRecalculatedVat: 100, postedAmount: 100, postingStatus: 'Contabilizada',
+      expectedTotal: 100, totalWithRecalculatedVat: 100, postedAmount: 100, postedAmountCalculable: true, postingStatus: 'Contabilizada',
       status: 'Correcta', errors: [], warnings: [],
     },
     {
       rowNumber: 3, invoiceId: 'F2', supplierTaxId: '901', issueDate: '2026-01-02', concept: 'Soporte',
       taxableBase: 200, vatAmount: 0, expectedVat: 0, withholdingAmount: 0, totalAmount: 200,
-      expectedTotal: 200, totalWithRecalculatedVat: 200, postedAmount: null, postingStatus: null,
+      expectedTotal: 200, totalWithRecalculatedVat: 200, postedAmount: null, postedAmountCalculable: true, postingStatus: null,
       status: 'Con inconsistencia',
       errors: [{
         code: 'MISSING_ACCOUNTING_RECORD',

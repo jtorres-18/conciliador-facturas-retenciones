@@ -15,7 +15,7 @@ from app.domain.models import (
     Severity,
 )
 from app.domain.rules import DEFAULT_RULES, InvoiceRule, ReconciliationContext
-from app.infrastructure.csv_reader import CsvRow, read_csv
+from app.infrastructure.csv_reader import CsvRow, InvalidFileError, read_csv
 
 
 class ReconciliationService:
@@ -57,6 +57,10 @@ def _group_accounting_lines(rows: list[CsvRow]) -> dict[str, AccountingRecord]:
     records: dict[str, AccountingRecord] = {}
     for row in rows:
         line = AccountingLine.from_csv_row(row.line_number, row.values)
+        if not line.invoice_id:
+            raise InvalidFileError(
+                f"En el archivo 'contabilidad.csv', fila {row.line_number}: el campo 'id_factura' está vacío."
+            )
         record = records.setdefault(line.invoice_id, AccountingRecord(line.invoice_id))
         record.add_line(line)
     return records

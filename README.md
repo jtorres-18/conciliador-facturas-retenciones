@@ -141,7 +141,7 @@ Una factura puede tener varias causas (por eso la suma supera 18). Además hay 4
 ### Pruebas automáticas
 
 ```powershell
-cd backend ; python -m pytest                # 39 pruebas (reglas, servicio y API), con el entorno virtual activo
+cd backend ; python -m pytest                # 51 pruebas (reglas, servicio y API), con el entorno virtual activo
 cd frontend ; npm test -- --watch=false      # 4 pruebas (flujo de la pantalla, filtro y errores)
 ```
 
@@ -185,9 +185,13 @@ Respuesta 200 (JSON en camelCase, el estándar de JavaScript/TypeScript):
   "details": [{
     "rowNumber": 7, "invoiceId": "FAC-0006", "status": "Con inconsistencia",
     "expectedVat": 190000, "vatAmount": 215000, "expectedTotal": 4015000, "totalWithRecalculatedVat": 3990000, "totalAmount": 3990000,
-    "postedAmount": 3990000, "postingStatus": "Contabilizada",
-    "errors": [{"code": "VAT_MISMATCH", "description": "IVA diferente a base × tarifa",
-                "message": "IVA esperado 190.000 (3.800.000 × 0.05) pero la factura trae 215.000"}],
+    "postedAmount": 3990000, "postedAmountCalculable": true, "postingStatus": "Contabilizada",
+    "errors": [
+      {"code": "VAT_MISMATCH", "description": "IVA diferente a base × tarifa",
+       "message": "IVA esperado 190.000 (3.800.000 × 0.05) pero la factura trae 215.000"},
+      {"code": "TOTAL_MISMATCH", "description": "Total diferente a base + IVA − retención",
+       "message": "Total esperado 4.015.000 (base + IVA informado − retención informada) pero la factura trae 3.990.000; diferencia -25.000. Referencia con IVA recalculado: 3.990.000"}
+    ],
     "warnings": []
   }]
 }
@@ -195,7 +199,7 @@ Respuesta 200 (JSON en camelCase, el estándar de JavaScript/TypeScript):
 
 `rowNumber` es el número de línea en `facturas.csv`, para poder ubicar el registro en el archivo original. El esquema completo queda documentado en http://localhost:8000/docs.
 
-Errores: `400` con `{"detail": "<mensaje>"}` si el archivo no es `.csv`, está vacío, no tiene registros o le faltan columnas; `413` si pesa más de 5 MB; `422` si falta alguno de los dos archivos.
+Errores: `400` con `{"detail": "<mensaje>"}` si el archivo no es `.csv`, está vacío, no tiene registros, le faltan columnas o una línea de `contabilidad.csv` trae `id_factura` vacío (el mensaje indica archivo, fila y campo); `413` si pesa más de 5 MB; `422` si falta alguno de los dos archivos.
 
 `GET /api/health` — verificación de que el servicio está activo.
 
@@ -208,7 +212,7 @@ Errores: `400` con `{"detail": "<mensaje>"}` si el archivo no es `.csv`, está v
 5. **Líneas contables con débito y crédito en 0** (FAC-0001 a 0006 tienen una segunda línea así): no cuentan como inconsistencia ni afectan los cálculos; la factura queda con una **advertencia** visible.
 6. **"Pendiente" es inconsistencia**, porque el proceso busca diferencias de estado de contabilización.
 7. **Duplicados:** todas las filas que comparten `id_factura` se marcan como duplicadas (no se asume cuál es la "original"). Los duplicados se detectan solo por `id_factura`, no por combinación de proveedor + valor.
-8. **Campo vacío es inconsistencia** para cualquiera de los 10 campos de la factura. En `contabilidad.csv` también: un campo vacío, un débito/crédito no numérico o una fecha de contabilización que no sea AAAA-MM-DD genera `INVALID_ACCOUNTING_DATA`, indicando fila y campo. Un valor vacío o ilegible nunca se convierte en 0; solo un `0` explícito es cero.
+8. **Campo vacío es inconsistencia** para cualquiera de los 10 campos de la factura. En `contabilidad.csv` también: un campo vacío, un débito/crédito no numérico o una fecha de contabilización que no sea AAAA-MM-DD genera `INVALID_ACCOUNTING_DATA`, indicando fila y campo. Un valor vacío o ilegible nunca se convierte en 0; solo un `0` explícito es cero. La suma afectada queda como no calculable (se muestra "No calculable" en la tabla) y se omiten las comparaciones que dependen de ella. Una línea con `id_factura` vacío rechaza todo el procesamiento con un 400.
 9. **El total cuenta registros procesados** (50, una fila de `facturas.csv` cada uno), e informa aparte las facturas distintas (48).
 10. **Formato de archivos:** UTF-8 o Latin-1; separador coma o punto y coma (se detecta); fechas `AAAA-MM-DD`; tarifas como decimal (`0.19`).
 11. **Sin persistencia:** el servicio no guarda nada; cada procesamiento es independiente.

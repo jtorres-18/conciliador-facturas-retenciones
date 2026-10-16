@@ -151,23 +151,27 @@ class AccountingLine:
 @dataclass
 class AccountingRecord:
     invoice_id: str
-    total_debit: Decimal = Decimal(0)
-    total_credit: Decimal = Decimal(0)
+    total_debit: Decimal | None = Decimal(0)
+    total_credit: Decimal | None = Decimal(0)
     statuses: set[str] = field(default_factory=set)
     lines_with_amount: int = 0
     zero_amount_lines: int = 0
     data_issues: list[str] = field(default_factory=list)
 
     def add_line(self, line: AccountingLine) -> None:
-        debit = line.debit or Decimal(0)
-        credit = line.credit or Decimal(0)
-        self.total_debit += debit
-        self.total_credit += credit
+        if line.debit is None:
+            self.total_debit = None
+        elif self.total_debit is not None:
+            self.total_debit += line.debit
+        if line.credit is None:
+            self.total_credit = None
+        elif self.total_credit is not None:
+            self.total_credit += line.credit
         self.statuses.add(line.status)
         self.data_issues.extend(line.issues)
         if line.debit is None or line.credit is None:
             pass
-        elif debit == 0 and credit == 0:
+        elif line.debit == 0 and line.credit == 0:
             self.zero_amount_lines += 1
         else:
             self.lines_with_amount += 1

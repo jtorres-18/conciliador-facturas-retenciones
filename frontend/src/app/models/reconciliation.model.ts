@@ -21,6 +21,7 @@ export interface InvoiceResult {
   expectedTotal: number | null;
   totalWithRecalculatedVat: number | null;
   postedAmount: number | null;
+  postedAmountCalculable: boolean;
   postingStatus: string | null;
   status: InvoiceStatus;
   errors: Finding[];

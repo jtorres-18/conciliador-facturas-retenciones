@@ -180,6 +180,8 @@ class UnbalancedEntryRule(AccountingRule):
     description = "Débito diferente al crédito"
 
     def check_record(self, invoice: Invoice, record: AccountingRecord) -> Finding | None:
+        if record.total_debit is None or record.total_credit is None:
+            return None
         if not amounts_differ(record.total_debit, record.total_credit):
             return None
         return self._finding(
@@ -203,7 +205,7 @@ class AccountingAmountRule(AccountingRule):
     description = "Valor contable diferente al total"
 
     def check_record(self, invoice: Invoice, record: AccountingRecord) -> Finding | None:
-        if invoice.total_amount is None:
+        if invoice.total_amount is None or record.total_debit is None:
             return None
         if not amounts_differ(record.total_debit, invoice.total_amount):
             return None
