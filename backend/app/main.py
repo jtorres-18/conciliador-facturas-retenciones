@@ -1,4 +1,3 @@
-"""Entry point: creates the FastAPI application and registers the routes."""
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 

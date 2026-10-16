@@ -1,10 +1,9 @@
-"""Use case: reconcile the invoices file against the accounting file."""
 from collections import Counter, defaultdict
-from decimal import Decimal, InvalidOperation
 
 from app.domain.models import (
     ACCOUNTING_COLUMNS,
     INVOICE_COLUMNS,
+    AccountingLine,
     AccountingRecord,
     Finding,
     FindingCount,
@@ -57,23 +56,10 @@ def _group_row_numbers(invoices: list[Invoice]) -> dict[str, list[int]]:
 def _group_accounting_lines(rows: list[CsvRow]) -> dict[str, AccountingRecord]:
     records: dict[str, AccountingRecord] = {}
     for row in rows:
-        invoice_id = row.values.get("id_factura", "")
-        record = records.setdefault(invoice_id, AccountingRecord(invoice_id))
-        record.add_line(
-            debit=_amount_or_zero(row.values.get("valor_debito", "")),
-            credit=_amount_or_zero(row.values.get("valor_credito", "")),
-            status=row.values.get("estado", ""),
-        )
+        line = AccountingLine.from_csv_row(row.line_number, row.values)
+        record = records.setdefault(line.invoice_id, AccountingRecord(line.invoice_id))
+        record.add_line(line)
     return records
-
-
-def _amount_or_zero(text: str) -> Decimal:
-    """Accounting amounts that are empty or not numeric count as 0 (documented assumption)."""
-    try:
-        amount = Decimal(text) if text else Decimal(0)
-    except InvalidOperation:
-        return Decimal(0)
-    return amount if amount.is_finite() else Decimal(0)
 
 
 def _count_by_code(findings: list[Finding]) -> list[FindingCount]:

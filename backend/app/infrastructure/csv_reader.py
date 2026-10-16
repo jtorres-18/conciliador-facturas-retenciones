@@ -1,11 +1,10 @@
-"""Reads the uploaded CSV files and checks their structure."""
 import csv
 import io
 from dataclasses import dataclass
 
 
 class InvalidFileError(Exception):
-    """Unreadable file or invalid structure (answered as HTTP 400)."""
+    ...
 
 
 @dataclass(frozen=True)
@@ -50,7 +49,6 @@ def _decode(content: bytes) -> str:
 
 
 def _detect_delimiter(text: str) -> str:
-    """Excel in Spanish usually exports with ';' instead of ','."""
     first_line = next(line for line in text.splitlines() if line.strip())
     return ";" if first_line.count(";") > first_line.count(",") else ","
 

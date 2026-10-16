@@ -1,4 +1,3 @@
-"""HTTP endpoints. They only translate HTTP <-> service; business logic lives in the domain."""
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 
 from app.api.schemas import HealthResponse, ReconciliationResponse
@@ -24,7 +23,6 @@ async def create_reconciliation(
     accounting: UploadFile = File(..., description="contabilidad.csv"),
     service: ReconciliationService = Depends(get_reconciliation_service),
 ) -> ReconciliationResponse:
-    """Receives both CSV files and returns the summary and the detail of the reconciliation."""
     invoices_csv = await _read_upload(invoices, "facturas")
     accounting_csv = await _read_upload(accounting, "contabilidad")
     try:

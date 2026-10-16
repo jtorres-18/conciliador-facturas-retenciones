@@ -103,7 +103,6 @@ tbody tr:last-child td {
   border-bottom: none;
 }
 
-/* Red mark on the left of the rows that need attention. */
 tr.has-errors td:first-child {
   box-shadow: inset 4px 0 0 var(--error);
 }

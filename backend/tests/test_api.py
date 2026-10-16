@@ -37,7 +37,8 @@ def test_details_explain_expected_values():
     assert invoice["status"] == "Con inconsistencia"
     assert invoice["expectedVat"] == 190000
     assert invoice["vatAmount"] == 215000
-    assert invoice["expectedTotal"] == invoice["totalAmount"] == 3990000
+    assert invoice["expectedTotal"] == 4015000
+    assert invoice["totalAmount"] == invoice["totalWithRecalculatedVat"] == 3990000
     assert invoice["errors"][0]["description"] == "IVA diferente a base × tarifa"
 
 

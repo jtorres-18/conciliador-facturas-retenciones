@@ -130,7 +130,7 @@ Cuando termine de compilar, abrir **http://localhost:4200**.
 |---|---|---|
 | Factura duplicada | 4 filas | FAC-0004, FAC-0015 (cada una aparece 2 veces) |
 | Sin registro contable | 4 | FAC-0007, 0021, 0034, 0042 |
-| Total ≠ base + IVA − retención | 3 | FAC-0009, 0023, 0036 |
+| Total ≠ base + IVA informado − retención | 5 | FAC-0009, 0023, 0036 y, por arrastre del IVA, FAC-0006 y 0018 |
 | Contabilización pendiente | 3 | FAC-0011, 0027, 0039 |
 | Campo obligatorio vacío | 3 | FAC-0013 (NIT), 0029 (concepto), 0042 (fecha) |
 | IVA ≠ base × tarifa | 2 | FAC-0006, 0018 |
@@ -152,7 +152,7 @@ Para cada fila de `facturas.csv` se evalúan estas reglas (archivo [`backend/app
 | Código | Clase | Regla |
 |---|---|---|
 | `VAT_MISMATCH` | `VatRule` | `valor_iva` ≠ `base_gravable × tarifa_iva` |
-| `TOTAL_MISMATCH` | `InvoiceTotalRule` | `total_factura` ≠ `base_gravable + IVA esperado − valor_retencion` |
+| `TOTAL_MISMATCH` | `InvoiceTotalRule` | `total_factura` ≠ `base_gravable + valor_iva − valor_retencion` (valores informados); muestra además el total con IVA recalculado como referencia |
 | `DUPLICATE_INVOICE` | `DuplicateInvoiceRule` | El `id_factura` aparece más de una vez en `facturas.csv` |
 | `MISSING_ACCOUNTING_RECORD` | `MissingAccountingRecordRule` | No existe ningún registro con ese `id_factura` en `contabilidad.csv` |
 | `PENDING_POSTING` | `PendingPostingRule` | Algún registro contable no está en estado `Contabilizada` |
@@ -160,8 +160,9 @@ Para cada fila de `facturas.csv` se evalúan estas reglas (archivo [`backend/app
 | `EMPTY_FIELD` | `RequiredFieldsRule` | Falta alguno de los 10 campos de la factura |
 | `WITHHOLDING_MISMATCH` | `WithholdingRule` | `valor_retencion` ≠ `base_gravable × tarifa_retencion` *(adicional)* |
 | `UNBALANCED_ENTRY` | `UnbalancedEntryRule` | Suma de débitos ≠ suma de créditos *(adicional)* |
-| `DUPLICATE_ACCOUNTING_ENTRY` | `DuplicateAccountingEntryRule` | Más de una línea contable con valor para la misma factura *(adicional)* |
+| `DUPLICATE_ACCOUNTING_ENTRY` | `DuplicateAccountingEntryRule` | Más de una línea contable con valor para la misma factura *(solo advertencia: varias líneas no prueban un duplicado; pendiente de definición funcional)* |
 | `NON_NUMERIC_VALUE`, `INVALID_DATE` | `NumericValuesRule`, `IssueDateFormatRule` | Formato inválido (fecha esperada `AAAA-MM-DD`) *(adicional)* |
+| `INVALID_ACCOUNTING_DATA` | `AccountingDataQualityRule` | Campo contable vacío, débito/crédito no numérico o fecha inválida (fila y campo) |
 | `ZERO_AMOUNT_ACCOUNTING_LINE` | `ZeroAmountLineRule` | Línea contable con débito y crédito en 0 *(solo advertencia)* |
 
 Una factura es **Correcta** si no tiene ninguna inconsistencia; si tiene al menos una, es **Con inconsistencia** y se listan todas. En pantalla se muestra la descripción en español de cada causa, no el código.
@@ -183,7 +184,7 @@ Respuesta 200 (JSON en camelCase, el estándar de JavaScript/TypeScript):
   },
   "details": [{
     "rowNumber": 7, "invoiceId": "FAC-0006", "status": "Con inconsistencia",
-    "expectedVat": 190000, "vatAmount": 215000, "expectedTotal": 3990000, "totalAmount": 3990000,
+    "expectedVat": 190000, "vatAmount": 215000, "expectedTotal": 4015000, "totalWithRecalculatedVat": 3990000, "totalAmount": 3990000,
     "postedAmount": 3990000, "postingStatus": "Contabilizada",
     "errors": [{"code": "VAT_MISMATCH", "description": "IVA diferente a base × tarifa",
                 "message": "IVA esperado 190.000 (3.800.000 × 0.05) pero la factura trae 215.000"}],
@@ -201,13 +202,13 @@ Errores: `400` con `{"detail": "<mensaje>"}` si el archivo no es `.csv`, está v
 ## Supuestos y decisiones
 
 1. **Tolerancia de $1** en toda comparación de valores, para absorber redondeos.
-2. **El total se valida con el IVA esperado** (base × tarifa), no con el IVA que trae la factura. Así un error en el campo `valor_iva` (FAC-0006 y FAC-0018, donde el total sí es consistente) se reporta una sola vez en lugar de generar además un falso error de total. El detalle muestra IVA esperado, IVA informado, total esperado y total informado.
+2. **IVA y total son dos comprobaciones independientes.** El IVA se compara con `base × tarifa` (¿está bien calculado?). El total se compara con `base + valor_iva − valor_retencion`, usando los valores tal como están escritos en la factura (¿suman bien?). Si el `valor_iva` está mal, el total puede quedar mal por arrastre y se reportan ambos errores (FAC-0006 y FAC-0018); el detalle muestra el total con IVA recalculado como referencia.
 3. **La retención se toma del campo `valor_retencion`** al validar el total, y se verifica aparte contra `base × tarifa_retencion`. La retención se calcula sobre la base gravable, que es como cuadran los datos de ejemplo.
 4. **Contabilidad agrupada por `id_factura`**: se suman los débitos y créditos de todas sus líneas y se compara con `total_factura`.
 5. **Líneas contables con débito y crédito en 0** (FAC-0001 a 0006 tienen una segunda línea así): no cuentan como inconsistencia ni afectan los cálculos; la factura queda con una **advertencia** visible.
 6. **"Pendiente" es inconsistencia**, porque el proceso busca diferencias de estado de contabilización.
 7. **Duplicados:** todas las filas que comparten `id_factura` se marcan como duplicadas (no se asume cuál es la "original"). Los duplicados se detectan solo por `id_factura`, no por combinación de proveedor + valor.
-8. **Campo vacío es inconsistencia** para cualquiera de los 10 campos de la factura. En `contabilidad.csv` solo se exige que existan las columnas; un débito o crédito vacío o no numérico se toma como 0.
+8. **Campo vacío es inconsistencia** para cualquiera de los 10 campos de la factura. En `contabilidad.csv` también: un campo vacío, un débito/crédito no numérico o una fecha de contabilización que no sea AAAA-MM-DD genera `INVALID_ACCOUNTING_DATA`, indicando fila y campo. Un valor vacío o ilegible nunca se convierte en 0; solo un `0` explícito es cero.
 9. **"Total de facturas" cuenta filas procesadas** (50), e informa aparte los números de factura distintos (48).
 10. **Formato de archivos:** UTF-8 o Latin-1; separador coma o punto y coma (se detecta); fechas `AAAA-MM-DD`; tarifas como decimal (`0.19`).
 11. **Sin persistencia:** el servicio no guarda nada; cada procesamiento es independiente.

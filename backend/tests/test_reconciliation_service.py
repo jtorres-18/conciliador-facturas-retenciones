@@ -22,13 +22,11 @@ def sample_report(sample_invoices_csv, sample_accounting_csv):
 
 
 def error_codes_by_row(report, invoice_id: str) -> list[list[str]]:
-    """Sorted error codes for every row that has that invoice id."""
     return [
         sorted(error_codes(result))
         for result in report.results
         if result.invoice.invoice_id == invoice_id
     ]
-
 
 
 def test_summary_of_sample_files(sample_report):
@@ -43,8 +41,8 @@ def test_summary_of_sample_files(sample_report):
 
 @pytest.mark.parametrize("invoice_id, expected", [
     ("FAC-0002", [[]]),                                  
-    ("FAC-0006", [["VAT_MISMATCH"]]),                    
-    ("FAC-0018", [["VAT_MISMATCH"]]),                    
+    ("FAC-0006", [["TOTAL_MISMATCH", "VAT_MISMATCH"]]),                    
+    ("FAC-0018", [["TOTAL_MISMATCH", "VAT_MISMATCH"]]),                    
     ("FAC-0009", [["TOTAL_MISMATCH"]]),                  
     ("FAC-0023", [["TOTAL_MISMATCH"]]),
     ("FAC-0036", [["TOTAL_MISMATCH"]]),
@@ -126,3 +124,45 @@ def test_empty_file_or_without_records(sample_accounting_csv):
         service.reconcile("﻿".encode(), sample_accounting_csv) 
     with pytest.raises(InvalidFileError, match="no tiene registros"):
         service.reconcile(INVOICES_HEADER.encode(), sample_accounting_csv)
+
+
+INVOICE_F1 = INVOICES_HEADER + "F1,900,2026-01-01,Soporte,1000000,0,0,0,0,1000000\n"
+
+
+def accounting_errors(line: str) -> list[str]:
+    report = reconcile(INVOICE_F1, ACCOUNTING_HEADER + line + "\n")
+    return [f.message for f in report.results[0].errors if f.code == "INVALID_ACCOUNTING_DATA"]
+
+
+def test_non_numeric_accounting_amount_is_reported_with_row_and_field():
+    messages = accounting_errors("F1,2026-01-02,511010,CC1,abc,1000000,Contabilizada")
+    assert messages == ["fila 2: 'valor_debito' no es numérico ('abc')"]
+
+
+def test_empty_accounting_amount_is_not_a_valid_zero():
+    messages = accounting_errors("F1,2026-01-02,511010,CC1,1000000,,Contabilizada")
+    assert messages == ["fila 2: 'valor_credito' está vacío"]
+
+
+def test_valid_zero_accounting_amount_is_not_a_data_issue():
+    assert accounting_errors("F1,2026-01-02,511010,CC1,0,0,Contabilizada") == []
+
+
+def test_empty_required_accounting_fields_and_invalid_date():
+    messages = accounting_errors("F1,02/01/2026,,CC1,1000000,1000000,Contabilizada")
+    assert messages == [
+        "fila 2: 'cuenta_contable' está vacío; "
+        "fila 2: 'fecha_contabilizacion' no tiene formato AAAA-MM-DD ('02/01/2026')"
+    ]
+
+
+def test_several_accounting_lines_with_value_are_only_a_warning():
+    report = reconcile(
+        INVOICE_F1,
+        ACCOUNTING_HEADER
+        + "F1,2026-01-02,511010,CC1,600000,600000,Contabilizada\n"
+        + "F1,2026-01-02,511020,CC1,400000,400000,Contabilizada\n",
+    )
+    result = report.results[0]
+    assert result.status == InvoiceStatus.CORRECT
+    assert [w.code for w in result.warnings] == ["DUPLICATE_ACCOUNTING_ENTRY"]

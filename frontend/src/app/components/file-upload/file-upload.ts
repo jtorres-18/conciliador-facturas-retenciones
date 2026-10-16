@@ -41,7 +41,7 @@ export class FileUpload {
   protected onFileSelected(slot: UploadSlot, event: Event): void {
     const input = event.target as HTMLInputElement;
     const file = input.files?.item(0) ?? null;
-    input.value = ''; // allows selecting the same file again
+    input.value = '';
     this.warning.set(null);
 
     if (!file) {

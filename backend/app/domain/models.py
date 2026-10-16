@@ -1,9 +1,5 @@
-"""Domain entities of the reconciliation.
-
-These classes know nothing about FastAPI or CSV files: they only hold data
-and the tax calculations that belong to each entity.
-"""
 from dataclasses import dataclass, field
+from datetime import date
 from decimal import Decimal, InvalidOperation
 from enum import Enum
 
@@ -30,7 +26,6 @@ class InvoiceStatus(str, Enum):
 
 @dataclass(frozen=True)
 class Finding:
-    """Something found while validating an invoice (an inconsistency or a warning)."""
     code: str
     description: str
     message: str
@@ -39,7 +34,6 @@ class Finding:
 
 @dataclass(frozen=True)
 class Invoice:
-    """One row of facturas.csv, with its amounts already converted to Decimal."""
     row_number: int
     invoice_id: str
     supplier_tax_id: str
@@ -88,7 +82,6 @@ class Invoice:
         )
 
     def expected_vat(self) -> Decimal | None:
-        """Business rule 1: VAT = taxable base × VAT rate."""
         if self.taxable_base is None or self.vat_rate is None:
             return None
         return self.taxable_base * self.vat_rate
@@ -99,31 +92,82 @@ class Invoice:
         return self.taxable_base * self.withholding_rate
 
     def expected_total(self) -> Decimal | None:
-        """Business rule 2: total = taxable base + VAT − withholding.
+        if self.taxable_base is None or self.vat_amount is None or self.withholding_amount is None:
+            return None
+        return self.taxable_base + self.vat_amount - self.withholding_amount
 
-        It uses the *expected* VAT so that a wrong VAT value is not reported twice.
-        """
+    def total_with_recalculated_vat(self) -> Decimal | None:
         expected_vat = self.expected_vat()
         if expected_vat is None or self.withholding_amount is None:
             return None
         return self.taxable_base + expected_vat - self.withholding_amount
 
 
+@dataclass(frozen=True)
+class AccountingLine:
+    row_number: int
+    invoice_id: str
+    status: str
+    debit: Decimal | None
+    credit: Decimal | None
+    issues: list[str] = field(default_factory=list)
+
+    @classmethod
+    def from_csv_row(cls, row_number: int, values: dict[str, str]) -> "AccountingLine":
+        issues: list[str] = []
+
+        for column in ACCOUNTING_COLUMNS:
+            if column != "id_factura" and not values.get(column):
+                issues.append(f"fila {row_number}: '{column}' está vacío")
+
+        def amount(column: str) -> Decimal | None:
+            text = values.get(column, "")
+            if not text:
+                return None
+            try:
+                number = Decimal(text)
+            except InvalidOperation:
+                number = None
+            if number is None or not number.is_finite():
+                issues.append(f"fila {row_number}: '{column}' no es numérico ('{text}')")
+                return None
+            return number
+
+        debit = amount("valor_debito")
+        credit = amount("valor_credito")
+
+        posting_date = values.get("fecha_contabilizacion", "")
+        if posting_date:
+            try:
+                date.fromisoformat(posting_date)
+            except ValueError:
+                issues.append(
+                    f"fila {row_number}: 'fecha_contabilizacion' no tiene formato AAAA-MM-DD ('{posting_date}')"
+                )
+
+        return cls(row_number, values.get("id_factura", ""), values.get("estado", ""), debit, credit, issues)
+
+
 @dataclass
 class AccountingRecord:
-    """All the lines of contabilidad.csv that belong to the same invoice, added up."""
     invoice_id: str
     total_debit: Decimal = Decimal(0)
     total_credit: Decimal = Decimal(0)
     statuses: set[str] = field(default_factory=set)
     lines_with_amount: int = 0
     zero_amount_lines: int = 0
+    data_issues: list[str] = field(default_factory=list)
 
-    def add_line(self, debit: Decimal, credit: Decimal, status: str) -> None:
+    def add_line(self, line: AccountingLine) -> None:
+        debit = line.debit or Decimal(0)
+        credit = line.credit or Decimal(0)
         self.total_debit += debit
         self.total_credit += credit
-        self.statuses.add(status)
-        if debit == 0 and credit == 0:
+        self.statuses.add(line.status)
+        self.data_issues.extend(line.issues)
+        if line.debit is None or line.credit is None:
+            pass
+        elif debit == 0 and credit == 0:
             self.zero_amount_lines += 1
         else:
             self.lines_with_amount += 1

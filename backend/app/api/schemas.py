@@ -1,8 +1,3 @@
-"""Response contract of the API (what the Angular frontend receives).
-
-Keeping these schemas apart from the domain lets the domain change without
-breaking the frontend, and FastAPI documents them automatically in /docs.
-"""
 from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict
@@ -19,7 +14,6 @@ from app.domain.models import (
 
 
 class CamelCaseModel(BaseModel):
-    """Python uses snake_case and TypeScript camelCase: the JSON is sent in camelCase."""
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 
@@ -63,6 +57,7 @@ class InvoiceResultResponse(CamelCaseModel):
     withholding_amount: float | None
     total_amount: float | None
     expected_total: float | None
+    total_with_recalculated_vat: float | None
     posted_amount: float | None
     posting_status: str | None
     status: InvoiceStatus
@@ -85,6 +80,7 @@ class InvoiceResultResponse(CamelCaseModel):
             withholding_amount=_to_float(invoice.withholding_amount),
             total_amount=_to_float(invoice.total_amount),
             expected_total=_to_float(invoice.expected_total()),
+            total_with_recalculated_vat=_to_float(invoice.total_with_recalculated_vat()),
             posted_amount=_to_float(accounting.total_debit) if accounting else None,
             posting_status=accounting.status_label() if accounting else None,
             status=result.status,

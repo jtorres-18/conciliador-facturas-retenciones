@@ -1,12 +1,3 @@
-"""Validation rules applied to each invoice.
-
-Each rule is a small class with a single responsibility. To add a new rule,
-create a new class and register it in `DEFAULT_RULES`: the reconciliation
-service does not need to change (open/closed principle).
-
-Codes and comments are in English; descriptions and messages are in Spanish
-because they are shown to the accounting team.
-"""
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import date
@@ -17,7 +8,6 @@ from app.domain.money import amounts_differ, format_pesos
 
 @dataclass(frozen=True)
 class ReconciliationContext:
-    """Data that some rules need beyond the invoice itself."""
     row_numbers_by_invoice_id: dict[str, list[int]]
     accounting_by_invoice_id: dict[str, AccountingRecord]
 
@@ -29,17 +19,13 @@ class InvoiceRule(ABC):
 
     @abstractmethod
     def check(self, invoice: Invoice, context: ReconciliationContext) -> Finding | None:
-        """Returns a Finding when the invoice breaks the rule, otherwise None."""
+        ...
 
     def _finding(self, message: str) -> Finding:
         return Finding(self.code, self.description, message, self.severity)
 
 
 class AccountingRule(InvoiceRule, ABC):
-    """Base for the rules that compare the invoice against its accounting record.
-
-    They are skipped when the invoice has no record (MissingAccountingRecordRule reports that).
-    """
 
     def check(self, invoice: Invoice, context: ReconciliationContext) -> Finding | None:
         record = context.accounting_by_invoice_id.get(invoice.invoice_id)
@@ -49,7 +35,6 @@ class AccountingRule(InvoiceRule, ABC):
 
     @abstractmethod
     def check_record(self, invoice: Invoice, record: AccountingRecord) -> Finding | None: ...
-
 
 
 class RequiredFieldsRule(InvoiceRule):
@@ -87,7 +72,6 @@ class NumericValuesRule(InvoiceRule):
             return None
         details = ", ".join(f"'{column}' = '{text}'" for column, text in invoice.non_numeric_fields.items())
         return self._finding(f"Valores no numéricos: {details}")
-
 
 
 class DuplicateInvoiceRule(InvoiceRule):
@@ -149,11 +133,15 @@ class InvoiceTotalRule(InvoiceRule):
         if not amounts_differ(expected_total, invoice.total_amount):
             return None
         difference = invoice.total_amount - expected_total
-        return self._finding(
-            f"Total esperado {format_pesos(expected_total)} (base + IVA − retención) "
+        message = (
+            f"Total esperado {format_pesos(expected_total)} (base + IVA informado − retención informada) "
             f"pero la factura trae {format_pesos(invoice.total_amount)}; "
             f"diferencia {format_pesos(difference)}"
         )
+        recalculated_total = invoice.total_with_recalculated_vat()
+        if recalculated_total is not None and amounts_differ(recalculated_total, expected_total):
+            message += f". Referencia con IVA recalculado: {format_pesos(recalculated_total)}"
+        return self._finding(message)
 
 
 class MissingAccountingRecordRule(InvoiceRule):
@@ -165,6 +153,15 @@ class MissingAccountingRecordRule(InvoiceRule):
             return None
         return self._finding("No existe ningún registro contable para esta factura")
 
+
+class AccountingDataQualityRule(AccountingRule):
+    code = "INVALID_ACCOUNTING_DATA"
+    description = "Datos contables inválidos"
+
+    def check_record(self, invoice: Invoice, record: AccountingRecord) -> Finding | None:
+        if not record.data_issues:
+            return None
+        return self._finding("; ".join(record.data_issues))
 
 
 class PendingPostingRule(AccountingRule):
@@ -193,6 +190,7 @@ class UnbalancedEntryRule(AccountingRule):
 class DuplicateAccountingEntryRule(AccountingRule):
     code = "DUPLICATE_ACCOUNTING_ENTRY"
     description = "Varios registros contables con valor"
+    severity = Severity.WARNING
 
     def check_record(self, invoice: Invoice, record: AccountingRecord) -> Finding | None:
         if record.lines_with_amount <= 1:
@@ -238,6 +236,7 @@ DEFAULT_RULES: list[InvoiceRule] = [
     WithholdingRule(),
     InvoiceTotalRule(),
     MissingAccountingRecordRule(),
+    AccountingDataQualityRule(),
     PendingPostingRule(),
     UnbalancedEntryRule(),
     DuplicateAccountingEntryRule(),

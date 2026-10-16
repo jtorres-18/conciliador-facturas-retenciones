@@ -1,4 +1,3 @@
-// API contract: same fields that the FastAPI backend returns (camelCase JSON).
 
 export type InvoiceStatus = 'Correcta' | 'Con inconsistencia';
 
@@ -20,6 +19,7 @@ export interface InvoiceResult {
   withholdingAmount: number | null;
   totalAmount: number | null;
   expectedTotal: number | null;
+  totalWithRecalculatedVat: number | null;
   postedAmount: number | null;
   postingStatus: string | null;
   status: InvoiceStatus;

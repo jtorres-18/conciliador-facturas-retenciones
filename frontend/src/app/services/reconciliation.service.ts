@@ -18,7 +18,6 @@ export class ReconciliationService {
   }
 }
 
-/** Turns an HTTP error into a message the user can understand. */
 export function toUserMessage(error: unknown): string {
   if (!(error instanceof HttpErrorResponse)) {
     return 'Ocurrió un error inesperado al procesar los archivos.';

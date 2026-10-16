@@ -1,7 +1,6 @@
-"""Unit tests of the domain: each rule can be tested on its own, without files or HTTP."""
 from decimal import Decimal
 
-from app.domain.models import AccountingRecord, Invoice, Severity
+from app.domain.models import AccountingLine, AccountingRecord, Invoice, Severity
 from app.domain.rules import (
     AccountingAmountRule,
     InvoiceTotalRule,
@@ -40,12 +39,6 @@ def test_vat_rule_tolerates_one_peso_of_rounding():
     assert VatRule().check(make_invoice(valor_iva="190001"), EMPTY_CONTEXT) is None
 
 
-def test_total_rule_uses_expected_vat_so_a_vat_error_is_not_reported_twice():
-    # The VAT field is wrong, but the total is consistent with base × rate.
-    invoice = make_invoice(valor_iva="200000", total_factura="1150000")
-    assert InvoiceTotalRule().check(invoice, EMPTY_CONTEXT) is None
-
-
 def test_non_numeric_amounts_are_not_used_in_calculations():
     invoice = make_invoice(base_gravable="abc")
     assert invoice.non_numeric_fields == {"base_gravable": "abc"}
@@ -59,8 +52,8 @@ def test_accounting_rules_are_skipped_when_there_is_no_record():
 
 def test_zero_amount_line_is_a_warning():
     record = AccountingRecord("F1")
-    record.add_line(Decimal("1150000"), Decimal("1150000"), "Contabilizada")
-    record.add_line(Decimal(0), Decimal(0), "Contabilizada")
+    record.add_line(AccountingLine(2, "F1", "Contabilizada", Decimal("1150000"), Decimal("1150000")))
+    record.add_line(AccountingLine(3, "F1", "Contabilizada", Decimal(0), Decimal(0)))
     context = ReconciliationContext({"F1": [2]}, {"F1": record})
 
     finding = ZeroAmountLineRule().check(make_invoice(), context)
@@ -68,3 +61,19 @@ def test_zero_amount_line_is_a_warning():
     assert finding is not None
     assert finding.severity == Severity.WARNING
     assert AccountingAmountRule().check(make_invoice(), context) is None
+
+
+def test_total_uses_informed_vat_and_shows_recalculated_total_as_reference():
+    invoice = make_invoice(valor_iva="200000", total_factura="1150000")
+    assert invoice.expected_total() == Decimal("1160000")
+    assert invoice.total_with_recalculated_vat() == Decimal("1150000")
+    finding = InvoiceTotalRule().check(invoice, EMPTY_CONTEXT)
+    assert finding is not None
+    assert "IVA informado" in finding.message
+    assert "Referencia con IVA recalculado: 1.150.000" in finding.message
+
+
+def test_total_is_correct_when_informed_values_add_up_even_if_vat_is_wrong():
+    invoice = make_invoice(valor_iva="200000", total_factura="1160000")
+    assert InvoiceTotalRule().check(invoice, EMPTY_CONTEXT) is None
+    assert VatRule().check(invoice, EMPTY_CONTEXT) is not None
